@@ -37,55 +37,59 @@ window.addEventListener('paste', async (event) => {
 
       const image = new Image()
       image.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = image.width
-        canvas.height = image.height
-        
-        const context = canvas.getContext('2d')
-        context.drawImage(image, 0, 0)
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = image.width
+          canvas.height = image.height
+          
+          const context = canvas.getContext('2d')
+          context.drawImage(image, 0, 0)
 
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
 
-        const palette = []
-        const indexedImage = []
+          const palette = []
+          const indexedImage = []
 
-        for (let y = 0; y < image.height; y += 1) {
-          const indexedImageRow = []
+          for (let y = 0; y < image.height; y += 1) {
+            const indexedImageRow = []
 
-          for (let x = 0; x < image.width; x += 1) {
-            const dataIndex = (y * image.width + x) * 4
+            for (let x = 0; x < image.width; x += 1) {
+              const dataIndex = (y * image.width + x) * 4
 
-            if (imageData.data[dataIndex + 3] === 0) {
-              indexedImageRow.push(null)
-              continue
+              if (imageData.data[dataIndex + 3] === 0) {
+                indexedImageRow.push(null)
+                continue
+              }
+
+              if (imageData.data[dataIndex + 3] !== 255) {
+                throw new Error('Image has semi-transparent pixels')
+              }
+
+              const rHex = ('0' + imageData.data[dataIndex + 0].toString(16)).slice(-2)
+              const gHex = ('0' + imageData.data[dataIndex + 1].toString(16)).slice(-2)
+              const bHex = ('0' + imageData.data[dataIndex + 2].toString(16)).slice(-2)
+
+              const colorName = `#${rHex}${gHex}${bHex}`
+
+              const paletteIndex = palette.findIndex((paletteColor) => paletteColor === colorName)
+              if (paletteIndex !== -1) {
+                indexedImageRow.push(paletteIndex)
+              } else {
+                indexedImageRow.push(palette.push(colorName) - 1)
+              }
+
+              if (palette.length > 10) {
+                throw new Error('Image has more than 10 colors')
+              }
             }
 
-            if (imageData.data[dataIndex + 3] !== 255) {
-              throw new Error('Image has semi-transparent pixels')
-            }
-
-            const rHex = ('0' + imageData.data[dataIndex + 0].toString(16)).slice(-2)
-            const gHex = ('0' + imageData.data[dataIndex + 1].toString(16)).slice(-2)
-            const bHex = ('0' + imageData.data[dataIndex + 2].toString(16)).slice(-2)
-
-            const colorName = `#${rHex}${gHex}${bHex}`
-
-            const paletteIndex = palette.findIndex((paletteColor) => paletteColor === colorName)
-            if (paletteIndex !== -1) {
-              indexedImageRow.push(paletteIndex)
-            } else {
-              indexedImageRow.push(palette.push(colorName) - 1)
-            }
-
-            if (palette.length > 10) {
-              throw new Error('Image has more than 10 colours')
-            }
+            indexedImage.push(indexedImageRow)
           }
 
-          indexedImage.push(indexedImageRow)
+          outputTextArea.value = formatPuzzleScriptImage(palette, indexedImage)
+        } catch (error) {
+          outputTextArea.value = error.message
         }
-
-        outputTextArea.value = formatPuzzleScriptImage(palette, indexedImage)
       }
 
       image.src = imageUrl
